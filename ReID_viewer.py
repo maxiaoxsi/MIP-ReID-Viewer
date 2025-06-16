@@ -2,7 +2,8 @@ import os
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QFileSystemModel, QTreeView, QLabel, QPushButton, 
-                             QScrollArea, QSplitter, QToolBar, QSizePolicy)
+                             QScrollArea, QSplitter, QToolBar, QSizePolicy, QLineEdit,
+                             QComboBox)
 from PyQt5.QtGui import QPixmap, QImage, QPalette, QTransform
 from PyQt5.QtCore import Qt, QDir, QSize
 
@@ -38,7 +39,6 @@ class ImageViewer(QMainWindow):
         
         self.tree_view = QTreeView()
         self.tree_view.setModel(self.file_model)
-        # self.tree_view.setRootIndex(self.file_model.index(QDir.homePath()))
         self.tree_view.setRootIndex(self.file_model.index(self.default_path))
         self.tree_view.setHeaderHidden(True)
         self.tree_view.hideColumn(1)  # 隐藏大小列
@@ -55,6 +55,33 @@ class ImageViewer(QMainWindow):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 添加检索栏
+        search_widget = QWidget()
+        search_layout = QHBoxLayout(search_widget)
+        search_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # 行人ID搜索
+        self.id_label = QLabel("行人ID:")
+        self.id_input = QLineEdit()
+        self.id_input.setPlaceholderText("输入行人ID")
+        
+        # 朝向选择
+        self.orientation_label = QLabel("朝向:")
+        self.orientation_combo = QComboBox()
+        self.orientation_combo.addItems(["全部", "正面", "背面", "左侧", "右侧"])
+        
+        # 搜索按钮
+        self.search_btn = QPushButton("搜索")
+        self.search_btn.clicked.connect(self.on_search)
+        
+        # 添加到检索栏布局
+        search_layout.addWidget(self.id_label)
+        search_layout.addWidget(self.id_input)
+        search_layout.addWidget(self.orientation_label)
+        search_layout.addWidget(self.orientation_combo)
+        search_layout.addWidget(self.search_btn)
+        search_layout.addStretch()
         
         # 顶部工具栏
         self.toolbar = QToolBar()
@@ -77,7 +104,7 @@ class ImageViewer(QMainWindow):
         self.toolbar.addSeparator()
         self.toolbar.addWidget(self.btn_fit)
         
-        # 连接按钮信号（暂时为空，可以后续添加功能）
+        # 连接按钮信号
         self.btn_prev.clicked.connect(self.show_previous_image)
         self.btn_next.clicked.connect(self.show_next_image)
         self.btn_zoom_in.clicked.connect(self.zoom_in)
@@ -101,6 +128,7 @@ class ImageViewer(QMainWindow):
         self.status_bar = self.statusBar()
         
         # 添加到右侧布局
+        right_layout.addWidget(search_widget)
         right_layout.addWidget(self.toolbar)
         right_layout.addWidget(self.scroll_area)
         
@@ -265,6 +293,16 @@ class ImageViewer(QMainWindow):
                 self.load_image(self.current_image_path)
         else:
             self.status_bar.showMessage(f"路径不存在: {path}")
+
+    def on_search(self):
+        """处理搜索按钮点击事件"""
+        person_id = self.id_input.text()
+        orientation = self.orientation_combo.currentText()
+        print(person_id)
+        print(orientation)
+        
+        # 这里可以添加搜索逻辑
+        self.status_bar.showMessage(f"搜索条件: ID={person_id}, 朝向={orientation}")
 
 
 if __name__ == '__main__':
