@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QFileSystemModel, QTreeView, QLabel, QPushButton, 
                              QScrollArea, QSplitter, QToolBar, QSizePolicy, QLineEdit,
-                             QComboBox)
+                             QComboBox, QGridLayout)
 from PyQt5.QtGui import QPixmap, QImage, QPalette, QTransform, QMouseEvent
 from PyQt5.QtCore import Qt, QDir, QSize
 
@@ -63,10 +63,17 @@ class ImageViewer(QMainWindow):
         # 设置默认路径
         self.default_path = '/Users/curarpikt/Documents/datasets/ReID/Market-1501-v15.09.15'
         
-        self.initUI()
+        # 初始化所有变量
         self.current_folder = None
         self.current_image_path = None
-        self.rotation_angle = 0  # 添加旋转角度跟踪
+        self.rotation_angle = 0
+        self.image_labels = []  # 存储所有图像标签
+        self.image_files = []
+        self.current_image_index = -1
+        self.scale_factor = 1.0
+        
+        # 初始化UI
+        self.initUI()
     
     def initUI(self):
         # 主窗口部件和布局
@@ -163,12 +170,21 @@ class ImageViewer(QMainWindow):
         self.scroll_area.setBackgroundRole(QPalette.Dark)
         self.scroll_area.setWidgetResizable(True)
         
-        self.image_label = ImageLabel()
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.image_label.setScaledContents(False)
+        # 创建网格布局容器
+        self.grid_widget = QWidget()
+        self.grid_layout = QGridLayout(self.grid_widget)
+        self.grid_layout.setSpacing(10)  # 设置网格间距
         
-        self.scroll_area.setWidget(self.image_label)
+        # 创建四个图像标签
+        for i in range(4):
+            image_label = ImageLabel()
+            image_label.setAlignment(Qt.AlignCenter)
+            image_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            image_label.setScaledContents(False)
+            self.image_labels.append(image_label)
+            self.grid_layout.addWidget(image_label, i // 2, i % 2)  # 2x2网格布局
+        
+        self.scroll_area.setWidget(self.grid_widget)
         
         # 状态栏
         self.status_bar = self.statusBar()
@@ -189,18 +205,11 @@ class ImageViewer(QMainWindow):
         # 主布局
         main_layout.addWidget(splitter)
         self.setCentralWidget(main_widget)
-        
-        # 初始化变量
-        self.image_files = []
-        self.current_image_index = -1
-        self.scale_factor = 1.0
     
     def on_search(self):
         """处理搜索按钮点击事件"""
         person_id = self.id_input.text()
         orientation = self.orientation_combo.currentText()
-        print(person_id)
-        print(orientation)
         
         # 这里可以添加搜索逻辑
         self.status_bar.showMessage(f"搜索条件: ID={person_id}, 朝向={orientation}")
@@ -241,17 +250,19 @@ class ImageViewer(QMainWindow):
         """加载并显示图片"""
         self.original_pixmap = QPixmap(path)  # 保存原始图片
         if self.original_pixmap.isNull():
-            self.image_label.setText("无法加载图片")
+            for label in self.image_labels:
+                label.setText("无法加载图片")
             return
         
         self.display_pixmap = self.original_pixmap  # 显示用的图片
-        self.image_label.original_pixmap = self.original_pixmap  # 设置原始图片
-        self.image_label.setPixmap(self.display_pixmap)
-        self.scale_factor = 1.0
-        self.rotation_angle = 0
-        self.image_label.scale_factor = self.scale_factor
-        self.image_label.rotation_angle = self.rotation_angle
-        self.image_label.adjustSize()
+        
+        # 在所有标签中显示相同的图片
+        for label in self.image_labels:
+            label.original_pixmap = self.original_pixmap
+            label.setPixmap(self.display_pixmap)
+            label.scale_factor = self.scale_factor
+            label.rotation_angle = self.rotation_angle
+            label.adjustSize()
         
         # 更新状态栏
         self.status_bar.showMessage(f"{os.path.basename(path)} ({self.current_image_index + 1}/{len(self.image_files)})")
@@ -299,10 +310,12 @@ class ImageViewer(QMainWindow):
         self.display_pixmap = self.original_pixmap.transformed(
             transform, Qt.SmoothTransformation)
         
-        self.image_label.setPixmap(self.display_pixmap)
-        self.image_label.scale_factor = self.scale_factor
-        self.image_label.rotation_angle = self.rotation_angle
-        self.image_label.adjustSize()
+        # 更新所有标签的显示
+        for label in self.image_labels:
+            label.setPixmap(self.display_pixmap)
+            label.scale_factor = self.scale_factor
+            label.rotation_angle = self.rotation_angle
+            label.adjustSize()
         
         # 调整滚动条位置
         self.adjust_scroll_bar(self.scroll_area.horizontalScrollBar(), 1.0)
