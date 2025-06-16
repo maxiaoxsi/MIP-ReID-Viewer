@@ -4,8 +4,54 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QFileSystemModel, QTreeView, QLabel, QPushButton, 
                              QScrollArea, QSplitter, QToolBar, QSizePolicy, QLineEdit,
                              QComboBox)
-from PyQt5.QtGui import QPixmap, QImage, QPalette, QTransform
+from PyQt5.QtGui import QPixmap, QImage, QPalette, QTransform, QMouseEvent
 from PyQt5.QtCore import Qt, QDir, QSize
+
+
+class ImageLabel(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)  # 启用鼠标追踪
+        self.original_pixmap = None
+        self.scale_factor = 1.0
+        self.rotation_angle = 0
+        
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton and self.original_pixmap:
+            # 获取点击位置相对于图片的坐标
+            pos = event.pos()
+            
+            # 获取图片在标签中的实际显示区域
+            pixmap_rect = self.rect()
+            pixmap_size = self.pixmap().size()
+            
+            # 计算图片在标签中的实际位置（居中显示）
+            x_offset = (pixmap_rect.width() - pixmap_size.width()) // 2
+            y_offset = (pixmap_rect.height() - pixmap_size.height()) // 2
+            
+            # 计算相对于图片的坐标
+            x = pos.x() - x_offset
+            y = pos.y() - y_offset
+            
+            # 检查点击是否在图片范围内
+            if 0 <= x < pixmap_size.width() and 0 <= y < pixmap_size.height():
+                # 计算原始图片中的坐标
+                original_x = int(x / self.scale_factor)
+                original_y = int(y / self.scale_factor)
+                
+                # 考虑旋转
+                if self.rotation_angle % 180 == 90:
+                    original_x, original_y = original_y, original_x
+                
+                # 确保坐标在原始图片范围内
+                if 0 <= original_x < self.original_pixmap.width() and 0 <= original_y < self.original_pixmap.height():
+                    # 获取父窗口的状态栏
+                    main_window = self.window()
+                    if main_window:
+                        # 获取点击位置的颜色
+                        color = self.original_pixmap.toImage().pixelColor(original_x, original_y)
+                        main_window.statusBar().showMessage(
+                            f"点击位置: ({original_x}, {original_y}), 颜色: RGB({color.red()}, {color.green()}, {color.blue()})")
 
 
 class ImageViewer(QMainWindow):
@@ -117,7 +163,7 @@ class ImageViewer(QMainWindow):
         self.scroll_area.setBackgroundRole(QPalette.Dark)
         self.scroll_area.setWidgetResizable(True)
         
-        self.image_label = QLabel()
+        self.image_label = ImageLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.image_label.setScaledContents(False)
@@ -148,6 +194,16 @@ class ImageViewer(QMainWindow):
         self.image_files = []
         self.current_image_index = -1
         self.scale_factor = 1.0
+    
+    def on_search(self):
+        """处理搜索按钮点击事件"""
+        person_id = self.id_input.text()
+        orientation = self.orientation_combo.currentText()
+        print(person_id)
+        print(orientation)
+        
+        # 这里可以添加搜索逻辑
+        self.status_bar.showMessage(f"搜索条件: ID={person_id}, 朝向={orientation}")
     
     def on_tree_view_clicked(self, index):
         path = self.file_model.filePath(index)
@@ -181,7 +237,6 @@ class ImageViewer(QMainWindow):
                     image_files.append(os.path.join(root, file))
         return sorted(image_files)
     
-    
     def load_image(self, path):
         """加载并显示图片"""
         self.original_pixmap = QPixmap(path)  # 保存原始图片
@@ -190,9 +245,12 @@ class ImageViewer(QMainWindow):
             return
         
         self.display_pixmap = self.original_pixmap  # 显示用的图片
+        self.image_label.original_pixmap = self.original_pixmap  # 设置原始图片
         self.image_label.setPixmap(self.display_pixmap)
         self.scale_factor = 1.0
         self.rotation_angle = 0
+        self.image_label.scale_factor = self.scale_factor
+        self.image_label.rotation_angle = self.rotation_angle
         self.image_label.adjustSize()
         
         # 更新状态栏
@@ -242,6 +300,8 @@ class ImageViewer(QMainWindow):
             transform, Qt.SmoothTransformation)
         
         self.image_label.setPixmap(self.display_pixmap)
+        self.image_label.scale_factor = self.scale_factor
+        self.image_label.rotation_angle = self.rotation_angle
         self.image_label.adjustSize()
         
         # 调整滚动条位置
@@ -278,7 +338,7 @@ class ImageViewer(QMainWindow):
         
         self.scale_factor = scale_factor
         self.update_display_image()
-
+    
     def set_root_path(self, path):
         """设置文件浏览器的根路径"""
         if os.path.exists(path):
@@ -293,16 +353,6 @@ class ImageViewer(QMainWindow):
                 self.load_image(self.current_image_path)
         else:
             self.status_bar.showMessage(f"路径不存在: {path}")
-
-    def on_search(self):
-        """处理搜索按钮点击事件"""
-        person_id = self.id_input.text()
-        orientation = self.orientation_combo.currentText()
-        print(person_id)
-        print(orientation)
-        
-        # 这里可以添加搜索逻辑
-        self.status_bar.showMessage(f"搜索条件: ID={person_id}, 朝向={orientation}")
 
 
 if __name__ == '__main__':
