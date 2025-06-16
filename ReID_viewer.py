@@ -10,8 +10,11 @@ from PyQt5.QtCore import Qt, QDir, QSize
 class ImageViewer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('图片浏览器')
+        self.setWindowTitle('ReID Viewer')
         self.setGeometry(100, 100, 1200, 800)
+        
+        # 设置默认路径
+        self.default_path = '/Users/curarpikt/Documents/datasets/ReID/Market-1501-v15.09.15'
         
         self.initUI()
         self.current_folder = None
@@ -28,14 +31,15 @@ class ImageViewer(QMainWindow):
         
         # 左侧文件夹树形视图
         self.file_model = QFileSystemModel()
-        self.file_model.setRootPath(QDir.rootPath())
+        self.file_model.setRootPath(self.default_path)
         self.file_model.setFilter(QDir.AllDirs | QDir.NoDotAndDotDot | QDir.Files)
         self.file_model.setNameFilters(["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif"])
         self.file_model.setNameFilterDisables(False)
         
         self.tree_view = QTreeView()
         self.tree_view.setModel(self.file_model)
-        self.tree_view.setRootIndex(self.file_model.index(QDir.homePath()))
+        # self.tree_view.setRootIndex(self.file_model.index(QDir.homePath()))
+        self.tree_view.setRootIndex(self.file_model.index(self.default_path))
         self.tree_view.setHeaderHidden(True)
         self.tree_view.hideColumn(1)  # 隐藏大小列
         self.tree_view.hideColumn(2)  # 隐藏类型列
@@ -247,9 +251,29 @@ class ImageViewer(QMainWindow):
         self.scale_factor = scale_factor
         self.update_display_image()
 
+    def set_root_path(self, path):
+        """设置文件浏览器的根路径"""
+        if os.path.exists(path):
+            self.default_path = path
+            self.file_model.setRootPath(path)
+            self.tree_view.setRootIndex(self.file_model.index(path))
+            self.current_folder = path
+            self.image_files = self.get_image_files(path)
+            if self.image_files:
+                self.current_image_index = 0
+                self.current_image_path = self.image_files[0]
+                self.load_image(self.current_image_path)
+        else:
+            self.status_bar.showMessage(f"路径不存在: {path}")
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     viewer = ImageViewer()
+    
+    # 如果命令行参数提供了路径，则使用该路径
+    if len(sys.argv) > 1:
+        viewer.set_root_path(sys.argv[1])
+    
     viewer.show()
     sys.exit(app.exec_())
